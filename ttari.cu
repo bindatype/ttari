@@ -1,7 +1,8 @@
 #include "ttari.h"
 /*
- * Authors: Ashin Shenoy ashwin@gwu.edu
- * 			Glen MacLachlan maclach@gwu.edu
+ * Authors:
+ * 	Aswhin Shenoy 		ashwin@gwu.edu
+ *	Glen MacLachlan 	maclach@gwu.edu
  *
  */
 using namespace std;
@@ -310,12 +311,9 @@ int main() {
 
 	/*This block looks at the masses in the 50th, 100th, 150th rings at the end of the simulation */
 	for (j = 0; j < ncells; j++) {
-		fprintf(stdout, "%d %e \n", j, M[49 * ncells + j]);
-		fprintf(stdout, "%d %e \n", j, M[99 * ncells + j]);
-		fprintf(stdout, "%d %e \n", j, M[149 * ncells + j]);
-//		fprintf(ring50, "%d %e \n", j, M[49 * ncells + j]);
-//		fprintf(ring100, "%d %e \n", j, M[99 * ncells + j]);
-//		fprintf(ring150, "%d %e \n", j, M[149 * ncells + j]);
+		fprintf(ring50, "%d %e \n", j, M[49 * ncells + j]);
+		fprintf(ring100, "%d %e \n", j, M[99 * ncells + j]);
+		fprintf(ring150, "%d %e \n", j, M[149 * ncells + j]);
 	}
 
 
