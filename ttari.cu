@@ -1,23 +1,7 @@
 #include "ttari.h"
 /*
- *
- * Main Exec Time: 22.6 [sec]
- * Kernel Exec Time: 0.039648 [msec]
- * Iterations: 50481 [msec]
- * maclach@gpudev:~/sand_pile$ ./ttari
- * 2.973751e+00Main Exec Time: 49.43 [sec]
- * Kernel Exec Time: 0.380672 [msec]
- * Iterations: 50481 [msec]
- *
- *
- *
- * Main Exec Time: 33.59 [sec]
- * Kernel Exec Time: 0.275616 [msec]
- * Iterations: 50481 [msec]
- *
- * Main Exec Time: 20.44 [sec]
- * Kernel Exec Time: 0.0136 [msec]
- * Iterations: 50481 [msec]
+ * Authors: Ashin Shenoy ashwin@gwu.edu
+ * 			Glen MacLachlan maclach@gwu.edu
  *
  */
 using namespace std;
@@ -45,11 +29,11 @@ __global__ void visc_inflow(curandState* globalState, double *M,
 	if (idx <  ncells) {
 		M[idx * ran] -= d_mv;
 		if (idx < ncells - 1)
-/*
+			/*
 			 This creates a race condition but it doesn't matter, most likely.
 			 The condition is one of decrement/increment. Because addition is
 			 commutative it doen't matter which executes first.
-*/
+			 */
 			M[(idx + 1) * idx + ran] += d_mv;
 	}
 }
@@ -70,7 +54,7 @@ __global__ void do_avalanche(double *M, double *M_next, double *m, double *m_cri
 			//	aval_count += 1;
 		}
 
-/*					for (j = 0; j < ncells; j++) {
+		/*					for (j = 0; j < ncells; j++) {
 						if (M[i * ncells + j] > m_crit[i]) {
 							M[i * ncells + j] -= 3 * m[i];
 							if (i < ncells - 1) {
@@ -334,15 +318,20 @@ int main() {
 		//			fprintf(lum_disk_all_points, "%e %e\n", iter * t_free, lum_tot);
 		//		}
 	}                                                    // END OF THE ITER LOOP
-	/* The simulation ends here */
+	/* The simulation ends here ... moving back onto host. */
+	cudaMemcpy(M, d_M, ncells * ncells * sizeof(double),
+			cudaMemcpyDeviceToHost);
+	cudaMemcpy(M_next, d_M_next, ncells * ncells * sizeof(double),
+			cudaMemcpyDeviceToHost);
+	cudaMemcpy(m_crit, d_m_crit, ncells * sizeof(double),
+			cudaMemcpyDeviceToHost);
+	cudaMemcpy(m, d_m, ncells * sizeof(double),
+			cudaMemcpyDeviceToHost);
 	long finishTime = clock();
 
 	//	/* This block averages the data for Ndata points over Nwin identical time windows to minimize statistical errors*/
 	//	for (i = 0; i < Ndata; i++) {
-	//		lum_tot_f_ave[i] = 0.0; // Initializes the time averaged data array to zero
-	//	}
-	//
-	//	for (i = 0; i < Ndata; i++) {
+	//      lum_tot_f_ave[i] = 0.0; // Initializes the time averaged data array to zero
 	//		for (j = 0; j < Nwin; j++)
 	//			lum_tot_f_ave[i] += (1.0 / Nwin) * lum_tot_f[j * Ndata + i];
 	//		t += t_free;
