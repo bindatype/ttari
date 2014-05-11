@@ -18,12 +18,11 @@ __global__ void setup_kernel ( curandState * state, unsigned long seed )
 
 __global__ void visc_inflow(curandState* globalState, double *M,
 		const double d_mv) {
-	int count = 0;
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	curandState localState = globalState[idx];
 	int ran = int (ncells*curand_uniform( &localState )) % (ncells);
-	printf("Ran = %d %d \n",ran,idx);
+	//	printf("Ran = %d %d \n",ran,idx);
 	globalState[idx] = localState;
 
 	if (idx <  ncells) {
@@ -287,28 +286,7 @@ int main() {
 		//		}
 		/* End of the standard deviation block */
 
-		/*This block looks at the masses in the 50th, 100th, 150th rings at the end of the simulation */
-		/*		if (iter == niter - 1) {
-		 for (i = 0; i < ncells - 1; i++) {
-		 if (i == 49) {
-		 for (j = 0; j < ncells; j++) {
-		 fprintf(ring50, "%d %e \n", j, M[i * ncells + j]);
-		 }
-		 }
-		 if (i == 99) {
-		 for (j = 0; j < ncells; j++) {
-		 fprintf(ring100, "%d %e \n", j, M[i * ncells + j]);
-		 }
-		 }
-		 if (i == 149) {
-		 for (j = 0; j < ncells; j++) {
-		 fprintf(ring150, "%d %e \n", j, M[i * ncells + j]);
-		 }
-		 }
 
-		 }
-		 }*/
-		/* End of the ring mass distribution block */
 
 		/* In this block we record the data after SOC has been achieved */
 		//		if (iter > nsoc) {
@@ -328,6 +306,24 @@ int main() {
 	cudaMemcpy(m, d_m, ncells * sizeof(double),
 			cudaMemcpyDeviceToHost);
 	long finishTime = clock();
+
+
+	/*This block looks at the masses in the 50th, 100th, 150th rings at the end of the simulation */
+	for (j = 0; j < ncells; j++) {
+		fprintf(stdout, "%d %e \n", j, M[49 * ncells + j]);
+		fprintf(stdout, "%d %e \n", j, M[99 * ncells + j]);
+		fprintf(stdout, "%d %e \n", j, M[149 * ncells + j]);
+//		fprintf(ring50, "%d %e \n", j, M[49 * ncells + j]);
+//		fprintf(ring100, "%d %e \n", j, M[99 * ncells + j]);
+//		fprintf(ring150, "%d %e \n", j, M[149 * ncells + j]);
+	}
+
+
+
+
+	/* End of the ring mass distribution block */
+
+
 
 	//	/* This block averages the data for Ndata points over Nwin identical time windows to minimize statistical errors*/
 	//	for (i = 0; i < Ndata; i++) {
