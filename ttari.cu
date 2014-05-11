@@ -51,7 +51,7 @@ __global__ void do_avalanche(double *M, double *M_next, double *m, double *m_cri
 				M_next[(i + 1) * ncells + (j + 1) % ncells] += m[i];
 				M_next[(i + 1) * ncells + (j - 1 + ncells) % ncells] += m[i];
 			}
-			//	aval_count += 1;
+			//	aval_count += 1; // SHould this be in the loop immediately above? ./GAM
 		}
 
 		/*					for (j = 0; j < ncells; j++) {
@@ -108,6 +108,7 @@ int main() {
 	int nsoc = 30000;   // where SOC is achieved
 	int niter = nsoc + Ndata * Nwin + 1; //nsoc + Nwin times Ndata, 1024 data points averaged over 20 windows
 	int temp1, knum, sum;
+	int bin_pts = 0;
 	double t_free, t, lum_tot;
 	double mv = 0.1 * m_unit;
 	double *m, *m_crit; // 1D ncells
@@ -323,25 +324,25 @@ int main() {
 
 
 
-	//	/* This block averages the data for Ndata points over Nwin identical time windows to minimize statistical errors*/
-	//	for (i = 0; i < Ndata; i++) {
-	//      lum_tot_f_ave[i] = 0.0; // Initializes the time averaged data array to zero
-	//		for (j = 0; j < Nwin; j++)
-	//			lum_tot_f_ave[i] += (1.0 / Nwin) * lum_tot_f[j * Ndata + i];
-	//		t += t_free;
-	//		fprintf(lc, "%e %e\n", t, lum_tot_f_ave[i]);
-	//	}
+	/* This block averages the data for Ndata points over Nwin identical time windows to minimize statistical errors*/
+	for (i = 0; i < Ndata; i++) {
+		lum_tot_f_ave[i] = 0.0; // Initializes the time averaged data array to zero
+		for (j = 0; j < Nwin; j++)
+			lum_tot_f_ave[i] += (1.0 / Nwin) * lum_tot_f[j * Ndata + i];
+		t += t_free;
+		fprintf(lc, "%e %e\n", t, lum_tot_f_ave[i]);
+	}
 	/* End of time data averaging block */
 
 	/* This block does the binning of the data */
-	//	for(int pts = 0; pts < knum; pts ++)
-	//	{
-	//		for(i = bin_pts; i < bin_pts + bin; i++)
-	//			lum_disk_f_bin[pts] += lum_tot_f_ave[i];
-	//		t_bin += t_free*bin;
-	//		fprintf(bin_data, "%e %e\n", t_bin, lum_disk_f_bin[pts]);
-	//		bin_pts += bin;
-	//	}
+//	for(int pts = 0; pts < knum; pts ++)
+//	{
+//		for(i = bin_pts; i < bin_pts + bin; i++)
+//			lum_disk_f_bin[pts] += lum_tot_f_ave[i];
+//		t_bin += t_free*bin;
+//		fprintf(bin_data, "%e %e\n", t_bin, lum_disk_f_bin[pts]);
+//		bin_pts += bin;
+//	}
 	/*  End of the time-binning block */
 
 	cout << "Main Exec Time: "
