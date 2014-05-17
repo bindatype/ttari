@@ -17,8 +17,8 @@ __global__ void setup_kernel ( curandState * state, unsigned long seed )
 }
 
 
-__global__ void visc_inflow(curandState* globalState, double *M,
-		const double d_mv) {
+__global__ void visc_inflow(curandState* globalState, float *M,
+		const float d_mv) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	curandState localState = globalState[idx];
@@ -39,18 +39,20 @@ __global__ void visc_inflow(curandState* globalState, double *M,
 }
 
 
-__global__ void do_avalanche(double *M, double *M_next, double *m, double *m_crit) {
+__global__ void do_avalanche(float *M, float *M_next, float *m, float *m_crit) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if ((idx < ncells) && (blockDim.x == ncells)) {
 		int i = blockIdx.x;
 		int j = threadIdx.x;
+		float mass = m[i];
 		if (M[i * ncells + j] > m_crit[i]) {
-			M[i * ncells + j] -= 3 * m[i];
+			M[i * ncells + j] -= 3 * mass;
 			if (i < ncells - 1) {
-				M_next[(i + 1) * ncells + j] += m[i];
-				M_next[(i + 1) * ncells + (j + 1) % ncells] += m[i];
-				M_next[(i + 1) * ncells + (j - 1 + ncells) % ncells] += m[i];
+				M_next[(i + 1) * ncells + j] += mass;
+				M_next[(i + 1) * ncells + (j + 1) % ncells] += mass;
+				M_next[(i + 1) * ncells + (j - 1 + ncells) % ncells] += mass;
 			}
+	//		__syncthreads();
 			//	aval_count += 1; // SHould this be in the loop immediately above? ./GAM
 		}
 
@@ -75,14 +77,14 @@ __global__ void do_avalanche(double *M, double *M_next, double *m, double *m_cri
 	}
 }
 
-__global__ void update_mass_arrays(double *M, double *M_next){
+__global__ void update_mass_arrays(float *M, float *M_next){
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if ((idx < ncells) && (blockDim.x == ncells)) {
 		M[idx] += M_next[idx];
 	}
 }
 
-__global__ void update_m_crit(double *m, double *m_crit){
+__global__ void update_m_crit(float *m, float *m_crit){
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if ((idx < ncells) && (blockDim.x == 1)) {
 		// Here we set the critical mass to vary over a given range (mass_range) starting from the initial (m_crit[0])
@@ -93,7 +95,7 @@ __global__ void update_m_crit(double *m, double *m_crit){
 }
 
 
-__global__ void init_2d_array(double *M, double value){
+__global__ void init_2d_array(float *M, float value){
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if ((idx < ncells) && (blockDim.x == ncells)) {
 		M[idx] = value;
@@ -109,17 +111,17 @@ int main() {
 	int niter = nsoc + Ndata * Nwin + 1; //nsoc + Nwin times Ndata, 1024 data points averaged over 20 windows
 	int temp1, knum, sum;
 	int bin_pts = 0;
-	double t_free, t, lum_tot;
-	double mv = 0.1 * m_unit;
-	double *m, *m_crit; // 1D ncells
-	double *M_next, *M;  // 2D ncells by ncless
-	double *d_m, *d_m_crit;
-	double *d_M_next, *d_M;
-	double m_visc, radius, temp2, r_width, f_1, f_2;
-	double delta_m;
-	double delta_A;
-	double f, B_f, delta_f;
-	double T, T_obs, delta_r[ncells], r[ncells], delta_E, delta_L_a,
+	float t_free, t, lum_tot;
+	float mv = 0.1 * m_unit;
+	float *m, *m_crit; // 1D ncells
+	float *M_next, *M;  // 2D ncells by ncless
+	float *d_m, *d_m_crit;
+	float *d_M_next, *d_M;
+	float m_visc, radius, temp2, r_width, f_1, f_2;
+	float delta_m;
+	float delta_A;
+	float f, B_f, delta_f;
+	float T, T_obs, delta_r[ncells], r[ncells], delta_E, delta_L_a,
 	delta_L_a_f, delta_L_ring_tot, delta_L_ring_f, lum_tot_f[Npts],
 	lum_tot_f_ave[Ndata];
 
@@ -148,13 +150,13 @@ int main() {
 	cudaEventCreate(&start);
 	cudaEventCreate(&stop);
 
-	if (NULL == (M = (double *) malloc(ncells * ncells * sizeof(double))))
+	if (NULL == (M = (float *) malloc(ncells * ncells * sizeof(float))))
 		exit(1);
-	if (NULL == (M_next = (double *) malloc(ncells * ncells * sizeof(double))))
+	if (NULL == (M_next = (float *) malloc(ncells * ncells * sizeof(float))))
 		exit(1);
-	if (NULL == (m_crit = (double *) malloc(ncells * sizeof(double))))
+	if (NULL == (m_crit = (float *) malloc(ncells * sizeof(float))))
 		exit(1);
-	if (NULL == (m = (double *) malloc(ncells * sizeof(double))))
+	if (NULL == (m = (float *) malloc(ncells * sizeof(float))))
 		exit(1);
 
 	t_free = time_freefall;
@@ -192,18 +194,18 @@ int main() {
 
 	long startTime = clock();
 	/*The data structures we want to move to device are:	 M	 M_next	 m_crit	 m	 */
-	if (cudaSuccess != cudaMalloc((void**) &d_M, ncells * ncells * sizeof(double))){printf ("cudaMalloc Failed!\n");}
-	cudaMemcpy(d_M, M, ncells * ncells * sizeof(double),
+	if (cudaSuccess != cudaMalloc((void**) &d_M, ncells * ncells * sizeof(float))){printf ("cudaMalloc Failed!\n");}
+	cudaMemcpy(d_M, M, ncells * ncells * sizeof(float),
 			cudaMemcpyHostToDevice);
-	if ( cudaSuccess != cudaMalloc((void**) &d_M_next, ncells * ncells * sizeof(double))){printf ("cudaMalloc Failed!\n");}
-	cudaMemcpy(d_M_next, M_next, ncells * ncells * sizeof(double),
+	if ( cudaSuccess != cudaMalloc((void**) &d_M_next, ncells * ncells * sizeof(float))){printf ("cudaMalloc Failed!\n");}
+	cudaMemcpy(d_M_next, M_next, ncells * ncells * sizeof(float),
 			cudaMemcpyHostToDevice);
 
-	if ( cudaSuccess != cudaMalloc((void**) &d_m_crit, ncells * sizeof(double))){printf ("cudaMalloc Failed!\n");}
-	cudaMemcpy(d_m_crit, m_crit, ncells * sizeof(double),
+	if ( cudaSuccess != cudaMalloc((void**) &d_m_crit, ncells * sizeof(float))){printf ("cudaMalloc Failed!\n");}
+	cudaMemcpy(d_m_crit, m_crit, ncells * sizeof(float),
 			cudaMemcpyHostToDevice);
-	if ( cudaSuccess != cudaMalloc((void**) &d_m, ncells * sizeof(double))){printf ("cudaMalloc Failed!\n");}
-	cudaMemcpy(d_m, m, ncells * sizeof(double), cudaMemcpyHostToDevice);
+	if ( cudaSuccess != cudaMalloc((void**) &d_m, ncells * sizeof(float))){printf ("cudaMalloc Failed!\n");}
+	cudaMemcpy(d_m, m, ncells * sizeof(float), cudaMemcpyHostToDevice);
 
 
 	curandState* devStates;
@@ -275,15 +277,15 @@ int main() {
 
 		/* The standard deviation of the mass distribution is calculated in the following block for every 100th iteration */
 		//		if (iter % 100 == 0) {
-		//			double mean = sum / (ncells * ncells);
-		//			double sum_of_sq = 0.;
+		//			float mean = sum / (ncells * ncells);
+		//			float sum_of_sq = 0.;
 		//			for (i = 0; i < ncells - 1; i++) {
 		//				for (j = 0; j < ncells; j++) {
-		//					double temp = M[i * ncells + j] - mean;
+		//					float temp = M[i * ncells + j] - mean;
 		//					sum_of_sq += temp * temp;
 		//				}
 		//			}
-		//			double std_dev = sqrt(sum_of_sq) / ncells;
+		//			float std_dev = sqrt(sum_of_sq) / ncells;
 		//			fprintf(stdev, "%d %e %e\n", iter, mean, std_dev);
 		//		}
 		/* End of the standard deviation block */
@@ -299,13 +301,13 @@ int main() {
 		//		}
 	}                                                    // END OF THE ITER LOOP
 	/* The simulation ends here ... moving back onto host. */
-	cudaMemcpy(M, d_M, ncells * ncells * sizeof(double),
+	cudaMemcpy(M, d_M, ncells * ncells * sizeof(float),
 			cudaMemcpyDeviceToHost);
-	cudaMemcpy(M_next, d_M_next, ncells * ncells * sizeof(double),
+	cudaMemcpy(M_next, d_M_next, ncells * ncells * sizeof(float),
 			cudaMemcpyDeviceToHost);
-	cudaMemcpy(m_crit, d_m_crit, ncells * sizeof(double),
+	cudaMemcpy(m_crit, d_m_crit, ncells * sizeof(float),
 			cudaMemcpyDeviceToHost);
-	cudaMemcpy(m, d_m, ncells * sizeof(double),
+	cudaMemcpy(m, d_m, ncells * sizeof(float),
 			cudaMemcpyDeviceToHost);
 	long finishTime = clock();
 
@@ -346,7 +348,7 @@ int main() {
 	/*  End of the time-binning block */
 
 	cout << "Main Exec Time: "
-			<< (finishTime - startTime) / (double) CLOCKS_PER_SEC << " [sec]"
+			<< (finishTime - startTime) / (float) CLOCKS_PER_SEC << " [sec]"
 			<< endl;
 	cout << "Kernel Exec Time: " << milliseconds << " [msec]" << endl;
 	cout << "Iterations: " << niter << "    NCells: " << ncells<< endl;
